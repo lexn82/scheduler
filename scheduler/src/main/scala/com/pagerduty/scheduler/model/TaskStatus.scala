@@ -1,6 +1,6 @@
 package com.pagerduty.scheduler.model
 
-import com.twitter.util.Time
+import java.time.LocalDateTime
 import org.json4s.DefaultFormats
 import org.json4s.jackson.Serialization.{ read, write }
 
@@ -10,7 +10,7 @@ import org.json4s.jackson.Serialization.{ read, write }
 case class TaskStatus(
     numberOfAttempts: Int,
     completionResult: CompletionResult,
-    nextAttemptAt: Option[Time]
+    nextAttemptAt: Option[LocalDateTime]
 ) {
   def isComplete = completionResult.isComplete
 

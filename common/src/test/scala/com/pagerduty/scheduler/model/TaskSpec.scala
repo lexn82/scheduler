@@ -1,12 +1,14 @@
 package com.pagerduty.scheduler.model
 
-import com.twitter.util.Time
+import java.time.{ LocalDateTime, ZoneOffset }
 import java.util.UUID
 import org.scalatest.{ Matchers, WordSpecLike }
 
 class TaskSpec extends WordSpecLike with Matchers {
   "A Task" should {
-    val scheduledTime = Time.fromMilliseconds(1454982072959L)
+    val sec = 1454982072L
+    val nanos = 959000000
+    val scheduledTime = LocalDateTime.ofEpochSecond(sec, nanos, ZoneOffset.UTC)
     val dataKey = "data"
     val dataValue = "moreData"
     val taskData = Map(dataKey -> dataValue)

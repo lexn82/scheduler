@@ -2,7 +2,7 @@ package com.pagerduty.scheduler.admin.http
 
 import com.pagerduty.scheduler.admin.model.AdminTask
 import com.pagerduty.scheduler.model.{ CompletionResult, TaskKey }
-import com.twitter.util.Time
+import java.time.LocalDateTime
 import org.json4s.{ CustomSerializer, MappingException }
 import org.json4s.JsonAST.JString
 
@@ -21,13 +21,13 @@ class CompletionStatusSerializer extends CustomSerializer[CompletionResult](form
   }
 ))
 
-class TimeSerializer extends CustomSerializer[Time](format => (
+class TimeSerializer extends CustomSerializer[LocalDateTime](format => (
   {
     case JString(timeString) =>
-      AdminServlet.TimeFormat.parse(timeString)
+      LocalDateTime.parse(timeString, AdminServlet.TimeFormat)
   },
   {
-    case t: Time => JString(AdminServlet.TimeFormat.format(t))
+    case t: LocalDateTime => JString(t.format(AdminServlet.TimeFormat))
   }
 ))
 

@@ -2,19 +2,20 @@ package com.pagerduty.scheduler.model
 
 import com.pagerduty.scheduler.Partitioner
 import com.pagerduty.scheduler.model.Task.PartitionId
-import com.twitter.util.{ Time, TimeFormat }
+import java.time.format.DateTimeFormatter
+import java.time.{ LocalDateTime, ZoneOffset }
 import org.json4s.CustomSerializer
 import org.json4s.JsonAST.JString
 
 case class TaskKey(
-    scheduledTime: Time,
+    scheduledTime: LocalDateTime,
     orderingId: Task.OrderingId,
     uniquenessKey: Task.UniquenessKey
 ) extends Ordered[TaskKey] {
-  def asTuple: (Time, Task.OrderingId, Task.UniquenessKey) = TaskKey.unapply(this).get
+  def asTuple: (LocalDateTime, Task.OrderingId, Task.UniquenessKey) = TaskKey.unapply(this).get
 
   def compare(that: TaskKey): Int = {
-    val firstComparison = this.asTuple._1.compare(that.asTuple._1)
+    val firstComparison = this.asTuple._1.compareTo(that.asTuple._1)
     if (firstComparison != 0) return firstComparison
     val secondComparison = this.asTuple._2.compare(that.asTuple._2)
     if (secondComparison != 0) return secondComparison
@@ -40,18 +41,15 @@ case class TaskKey(
 }
 
 object TaskKey {
-  // NOTE:
-  // Since com.twitter.util.Time is always stored internally as UTC, this format will always be UTC
-  // as well, even if the time was created with a different zone.
-  val ScheduledTimeFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
-  private[scheduler] val TimeFormat = new TimeFormat(ScheduledTimeFormat)
+  val ScheduledTimeFormat = "yyyy-MM-dd'T'HH:mm:ss[.SSS]'Z'"
+  private[scheduler] val TimeFormat = DateTimeFormatter.ofPattern(ScheduledTimeFormat)
 
   def apply(
     formattedScheduledTime: String,
     orderingId: Task.OrderingId,
     uniquenessKey: Task.UniquenessKey
   ): TaskKey = {
-    TaskKey(TimeFormat.parse(formattedScheduledTime), orderingId, uniquenessKey)
+    TaskKey(LocalDateTime.parse(formattedScheduledTime, TimeFormat), orderingId, uniquenessKey)
   }
 
   def fromString(key: String): TaskKey = {
@@ -61,7 +59,7 @@ object TaskKey {
   }
 
   def lowerBound(
-    scheduledTime: Time,
+    scheduledTime: LocalDateTime,
     orderingId: Option[Task.OrderingId] = None,
     uniquenessKey: Option[Task.UniquenessKey] = None
   ): TaskKey = {
@@ -71,8 +69,8 @@ object TaskKey {
   }
 }
 
-class TaskKeyTimeSerializer extends CustomSerializer[Time](format => ({
-  case JString(s) => TaskKey.TimeFormat.parse(s)
+class TaskKeyTimeSerializer extends CustomSerializer[LocalDateTime](format => ({
+  case JString(s) => LocalDateTime.parse(s, TaskKey.TimeFormat)
 }, {
-  case t: Time => JString(TaskKey.TimeFormat.format(t))
+  case t: LocalDateTime => JString(t.format(TaskKey.TimeFormat))
 }))

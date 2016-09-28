@@ -3,15 +3,17 @@ package com.pagerduty.scheduler.dao
 import com.netflix.astyanax.{Cluster, Keyspace}
 import com.pagerduty.eris.TimeUuid
 import com.pagerduty.eris.dao._
+import com.pagerduty.scheduler.datetimehelpers._
 import com.pagerduty.scheduler.model.Task.PartitionId
 import com.pagerduty.scheduler.model.{Task, TaskKey}
 import com.pagerduty.scheduler.specutil.TaskFactory
 import com.pagerduty.scheduler.specutil.TestTimer
-import com.twitter.conversions.time._
-import com.twitter.util.Time
+import java.time.temporal.ChronoUnit
+import java.time.{ LocalDateTime, ZoneOffset }
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{MustMatchers, fixture}
+import scala.concurrent.duration._
 import scala.util.Random
 
 class TaskScheduleDaoSpec
@@ -39,11 +41,11 @@ class TaskScheduleDaoSpec
     }
 
     "load edge case correctly" in { dao =>
-      def taskFromTime(time: Time) = {
+      def taskFromTime(time: LocalDateTime) = {
         val taskKey = TaskKey.lowerBound(time)
         Task(taskKey, "{}")
       }
-      val fromTime = Time.now
+      val fromTime = LocalDateTime.now(ZoneOffset.UTC)
       val toTime = fromTime + 1.millisecond
       val tasks = Seq(taskFromTime(fromTime), taskFromTime(toTime))
 
@@ -58,7 +60,7 @@ class TaskScheduleDaoSpec
     }
 
     "load tasks when given a lower bound with full key" in { dao =>
-      val now = Time.now
+      val now = LocalDateTime.now(ZoneOffset.UTC)
       val key1 = TaskKey(now, "1", "1")
       val key2 = TaskKey(now, "2", "1")
       val key3 = TaskKey(now, "2", "2")
@@ -91,7 +93,7 @@ class TaskScheduleDaoSpec
     }
 
     "validate range arguments for load()" in { dao =>
-      val from = TaskKey.lowerBound(Time.now)
+      val from = TaskKey.lowerBound(LocalDateTime.now(ZoneOffset.UTC))
       val to = from.scheduledTime
       an[IllegalArgumentException] should be thrownBy {
         dao.load(partitionId, from, to, limit).futureValue
@@ -111,8 +113,8 @@ class TaskScheduleDaoSpec
       val persistedTasks = dao.loadPlusMinusOneDayFrom(allTasks.head)
       persistedTasks mustEqual allTasks
 
-      def testFor(bucketTime: Time, expectedResult: Seq[Task]): Unit = {
-        val from = TaskKey.lowerBound(bucketTime.floor(dao.rowTimeBucketDuration))
+      def testFor(bucketTime: LocalDateTime, expectedResult: Seq[Task]): Unit = {
+        val from = TaskKey.lowerBound(bucketTime.truncatedTo(ChronoUnit.HOURS))
         val to = from.scheduledTime + dao.rowTimeBucketDuration
         val loadedTasks = dao.load(partitionId, from, to, limit).futureValue
         loadedTasks mustEqual expectedResult
@@ -171,8 +173,8 @@ class TaskScheduleDaoSpec
         }
       }
       var tasksFromCassandra = Map[PartitionId, IndexedSeq[Task]]()
-      tasksFromCassandra = dao.loadTasksFromPartitions(partitionIds, Time.now - 2.hours,
-        Time.now, 10).futureValue
+      tasksFromCassandra = dao.loadTasksFromPartitions(partitionIds, LocalDateTime.now(ZoneOffset.UTC) - 2.hours,
+        LocalDateTime.now(ZoneOffset.UTC), 10).futureValue
 
       tasksFromCassandra.foreach {
         case (key, _) =>
@@ -189,12 +191,12 @@ class TaskScheduleDaoSpec
       }
 
       //Edge conditions. These tasks should not be counted when getting the task count
-      val reallyNewTask = TaskFactory.makeTask(Time.now + 30.seconds)
-      val reallyOldTask = TaskFactory.makeTask(Time.now - 2.hours - 30.seconds)
+      val reallyNewTask = TaskFactory.makeTask(LocalDateTime.now(ZoneOffset.UTC) + 30.seconds)
+      val reallyOldTask = TaskFactory.makeTask(LocalDateTime.now(ZoneOffset.UTC) - (2.hours + 30.seconds))
       dao.insert(partitionIds.head, Seq(reallyOldTask, reallyNewTask)).futureValue
 
       val totalTaskCount =
-        dao.getTotalTaskCount(partitionIds, Time.now - 2.hours, Time.now, 100).futureValue
+        dao.getTotalTaskCount(partitionIds, LocalDateTime.now(ZoneOffset.UTC) - 2.hours, LocalDateTime.now(ZoneOffset.UTC), 100).futureValue
 
       totalTaskCount mustEqual tasks.size
     }

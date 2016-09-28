@@ -13,15 +13,10 @@ scala:
   - 2.10.4
   - 2.11.7
 jdk:
-  - oraclejdk7
   - oraclejdk8
 env:
   - CASS=cassandra
   - CASS=cassandra3
-matrix:
-  exclude:
-  - env: CASS=cassandra3
-    jdk: oraclejdk7
 sudo: required
 dist: trusty
 cache:
